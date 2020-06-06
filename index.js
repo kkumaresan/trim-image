@@ -39,9 +39,14 @@ module.exports = function trimImage(filename, filenameOut, ...rest) {
         cropData.top = j;
 
         for (i = 0; i < w; i++) {
-          a = pixels.get(i, j, 3);
-
-          if (a !== 0) break top;
+          const r = pixels.get(i, j, 0);
+          const g = pixels.get(i, j, 1);
+          const b = pixels.get(i, j, 2);
+          // const alpha = pixels.get(i, j, 3);
+          if (
+            (r!==255 && g!==255 && b!==255) ||
+            (r!==0 && g!==0 && b!==0)
+          ) break top;
         }
       }
     }
