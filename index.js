@@ -14,96 +14,105 @@ module.exports = function trimImage(filename, filenameOut, ...rest) {
       bottom: true,
       left: true,
     }, crop);
-
-  getPixels(filename, (err, pixels) => {
-    if (err) {
-      cb('Bad image path:', filename);
-      return;
-    }
-
-    const w = pixels.shape[0];
-    const h = pixels.shape[1];
-
-    let i, j, a;
-
-    let cropData = {
-      top: 0,
-      right: w,
-      bottom: h,
-      left: 0,
-    };
-
-    top:
-    if (crop.top) {
-      for (j = 0; j < h; j++) {
-        cropData.top = j;
-
-        for (i = 0; i < w; i++) {
-          const r = pixels.get(i, j, 0);
-          const g = pixels.get(i, j, 1);
-          const b = pixels.get(i, j, 2);
-          // const alpha = pixels.get(i, j, 3);
-          if (
-            (r!==255 && g!==255 && b!==255) ||
-            (r!==0 && g!==0 && b!==0)
-          ) break top;
-        }
+  return new Promise((resolve, reject)=>{
+    getPixels(filename, 
+      (err, pixels) => {
+      if (err) {
+        cb('Bad image path:', filename);
+        return;
       }
-    }
-
-    right:
-    if (crop.right) {
-      for (i = w - 1; i >= 0; i--) {
-        for (j = h - 1; j >= 0; j--) {
-          a = pixels.get(i, j, 3);
-
-          if (a !== 0) break right;
-        }
-
-        cropData.right = i;
-      }
-    }
-
-    bottom:
-    if (crop.bottom) {
-      for (j = h - 1; j >= 0; j--) {
-        for (i = w - 1; i >= 0; i--) {
-          a = pixels.get(i, j, 3);
-
-          if (a !== 0) break bottom;
-        }
-
-        cropData.bottom = j;
-      }
-    }
-
-    left:
-    if (crop.left) {
-      for (i = 0; i < w; i++) {
-        cropData.left = i;
-
+  
+      const w = pixels.shape[0];
+      const h = pixels.shape[1];
+  
+      let i, j, a;
+  
+      let cropData = {
+        top: 0,
+        right: w,
+        bottom: h,
+        left: 0,
+      };
+  
+      top:
+      if (crop.top) {
         for (j = 0; j < h; j++) {
-          a = pixels.get(i, j, 3);
-
-          if (a !== 0) break left;
+          cropData.top = j;
+  
+          for (i = 0; i < w; i++) {
+            const r = pixels.get(i, j, 0);
+            const g = pixels.get(i, j, 1);
+            const b = pixels.get(i, j, 2);
+            // const alpha = pixels.get(i, j, 3);
+            if (
+              (r!==255 && g!==255 && b!==255) ||
+              (r!==0 && g!==0 && b!==0)
+            ) break top;
+          }
         }
       }
-    }
-
-    // Check error
-    if ((cropData.left > cropData.right) || (cropData.top > cropData.bottom)) {
-      cb('Crop coordinates overflow:', filename);
-    } else {
-      const dirname = path.dirname(filenameOut);
-
-      if (!fs.existsSync(dirname)) {
-        mkdirp(dirname, function (err) {
-          if (err) console.error(err);
-        });
+  
+      right:
+      if (crop.right) {
+        for (i = w - 1; i >= 0; i--) {
+          for (j = h - 1; j >= 0; j--) {
+            a = pixels.get(i, j, 3);
+  
+            if (a !== 0) break right;
+          }
+  
+          cropData.right = i;
+        }
       }
+  
+      bottom:
+      if (crop.bottom) {
+        for (j = h - 1; j >= 0; j--) {
+          for (i = w - 1; i >= 0; i--) {
+            a = pixels.get(i, j, 3);
+  
+            if (a !== 0) break bottom;
+          }
+  
+          cropData.bottom = j;
+        }
+      }
+  
+      left:
+      if (crop.left) {
+        for (i = 0; i < w; i++) {
+          cropData.left = i;
+  
+          for (j = 0; j < h; j++) {
+            a = pixels.get(i, j, 3);
+  
+            if (a !== 0) break left;
+          }
+        }
+      }
+  
+      // Check error
+      if ((cropData.left > cropData.right) || (cropData.top > cropData.bottom)) {
+        cb('Crop coordinates overflow:', filename);
+      } else {
+        const dirname = path.dirname(filenameOut);
+  
+        if (!fs.existsSync(dirname)) {
+          mkdirp(dirname, function (err) {
+            if (err) console.error(err);
+          });
+        }
+        const buffer = fs.createWriteStream(filenameOut)
+        const saveStream = savePixels(pixels.hi(cropData.right, cropData.bottom).lo(cropData.left, cropData.top), 'png').pipe(
+          buffer
+        );
+        
+        saveStream.on('finish', ()=>{
+          cb(false);
+          resolve();
+        })
+      }
+    });
+  })
 
-      savePixels(pixels.hi(cropData.right, cropData.bottom).lo(cropData.left, cropData.top), 'png').pipe(fs.createWriteStream(filenameOut));
-      cb(false);
-    }
-  });
 };
